@@ -1,6 +1,6 @@
 # Replicate reward-complexity
 
-## Intro 
+## Introduction
 
 This repo is created to replicate the some of the results shown in:
 [Gershman and Lai 2021, The reward-complexity trade-off in schizophrenia](https://www.biorxiv.org/content/10.1101/2020.11.16.385013v2.full.pdf)
