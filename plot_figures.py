@@ -7,6 +7,7 @@ Original repo: http://github.com/lucylai96/plm/
 @Zeming 
 '''
 import os 
+import argparse
 import pickle 
 import numpy as np 
 import matplotlib.pyplot as plt 
@@ -15,6 +16,9 @@ import scipy.stats
 
 # define the saving path
 path = os.path.dirname(os.path.abspath(__file__))
+parser = argparse.ArgumentParser(description='Test for argparse')
+parser.add_argument('--fig_idx', '-f', help='figure idx', default='fig2')
+args = parser.parse_args()
 
 '''
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -100,8 +104,14 @@ def Fig2():
     except:
         os.mkdir('figures')
         plt.savefig( f'{path}/figures/Gershman21_fig2')
+
+def plot_figures( fig_idx):
+
+    if fig_idx=='fig2':
+        Fig2()
+    
     
 if __name__ == '__main__':
 
     # show figure
-    Fig2()
+    plot_figures(args.fig_idx)
