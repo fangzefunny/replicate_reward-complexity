@@ -9,7 +9,7 @@ Specifically, This repo reproduce the Fig2 an Fig 5.
 
 ## How to use the code 
 
-With any python terminals run:
+With any python terminal, run:
 
     python plot_figures.py -f=fig2
    
