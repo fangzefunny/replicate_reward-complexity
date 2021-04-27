@@ -1,4 +1,4 @@
-# replicate reward-complexity
+# Replicate reward-complexity
 
 # Intro 
 
