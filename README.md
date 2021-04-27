@@ -20,6 +20,7 @@ or
 ## Thanks
 
 Thanks Collins and Frank for making their data set avilable;
+
 Thanks Lai and Gershman for posting the [data set and code](http://github.com/lucylai96/plm/)
 
 
