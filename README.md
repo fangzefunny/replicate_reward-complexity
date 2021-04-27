@@ -11,11 +11,11 @@ Specifically, This repo reproduce the Fig2 an Fig 5.
 
 With any python terminals run:
 
-   python plot_figures.py -f=fig2
+      python plot_figures.py -f=fig2
    
 or 
 
-  python plot_figures.py -f=fig5
+    python plot_figures.py -f=fig5
   
 
   
