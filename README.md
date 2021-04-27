@@ -1,4 +1,4 @@
-# Replicate reward-complexity
+# Estimate the mutual information across set sizes
 
 ## Introduction
 
