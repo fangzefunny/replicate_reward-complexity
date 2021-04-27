@@ -1,0 +1,5 @@
+# ignore the data except the raw data
+data/collins_data_14.pkl
+data/results_collins_data_14.pkl
+
+# 
