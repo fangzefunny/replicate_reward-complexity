@@ -14,10 +14,12 @@ import matplotlib.pyplot as plt
 
 import scipy.stats
 
+from process_and_analyze import prepare_fig2
+
 # define the saving path
 path = os.path.dirname(os.path.abspath(__file__))
 parser = argparse.ArgumentParser(description='Test for argparse')
-parser.add_argument('--fig_idx', '-f', help='figure idx', default='fig2')
+parser.add_argument('--fig_idx', '-f', help='figure idx', default='fig7')
 args = parser.parse_args()
 
 '''
@@ -51,11 +53,19 @@ def Fig2():
     colors = [ 'b', 'r' ]
     setsize = [ 2, 3, 4, 5, 6]
 
-    with open( f'{path}/data/results_collins_data_14.pkl', 'rb')as handle:
-        outcome = pickle.load( handle) 
-    
+    # try to get the result data,
+    try:
+        with open( f'{path}/data/results_collins_data_14.pkl', 'rb')as handle:
+            outcome = pickle.load( handle) 
+    # if fails, prepare the data for fig2
+    except:
+        prepare_fig2()
+        with open( f'{path}/data/results_collins_data_14.pkl', 'rb')as handle:
+            outcome = pickle.load( handle)
+
     plt.figure(figsize=(10,8))
     plt.rcParams.update({'font.size': 15})
+
     # show the rate distortion curve for each set size
     for i, sz in enumerate( setsize):
 
@@ -105,11 +115,34 @@ def Fig2():
         os.mkdir('figures')
         plt.savefig( f'{path}/figures/Gershman21_fig2')
 
+def Fig7():
+
+    with open( f'{path}/data/params_dict.pkl', 'rb')as handle:
+        params_mat = pickle.load( handle) 
+
+    plt.figure(figsize=(6,6))
+    plt.rcParams.update({'font.size': 15})
+    params_name = [ 'α_v', 'α_θ', 'α_a', 'β']
+    conds = [ 'HC', 'SZ']
+    is_szs = params_mat[ :, -1]
+    x = np.arange(params_mat.shape[0])
+    for i, parameter in enumerate(params_name):
+        plt.subplot( 2, 2, i+1)
+        for j, _ in enumerate( conds):
+            param_summary = params_mat[ :, (is_szs==j)]
+            plt.scatter( x, param_summary, color='b')
+            plt.title( f'{parameter}')
+    plt.savefig( f'{path}/figures/Gershman21_fig7')
+    
+
 def plot_figures( fig_idx):
 
     if fig_idx=='fig2':
         Fig2()
-    
+    elif fig_idx=='fig5':
+        pass 
+    elif fig_idx=='fig7':
+        Fig7()
     
 if __name__ == '__main__':
 

@@ -4,9 +4,12 @@ import numpy as np
 import pandas as pd 
 
 from scipy.special import psi, logsumexp 
+from scipy.optimize import minimize
 
 # define the saving path
 path = os.path.dirname(os.path.abspath(__file__))
+# find the machine epsilon
+eps_ = np.finfo(float).eps 
 
 '''
 SEC0: Basic Functions
@@ -258,11 +261,402 @@ def analyze():
     with open( f'{path}/data/results_collins_data_14.pkl', 'wb')as handle:
         pickle.dump( outcome, handle) 
 
-if __name__ == '__main__':
-
+def prepare_fig2():
     # preprocess 
     pre_process() 
-
     # analyze
     analyze()
+
+'''
+SEC3: Simluate data  
+'''
+
+class collins_task:
+
+    def __init__( self, nS):
+        self.nS = nS
+        self.nA = 3
+        self.trial_per_stimuli = 11
+        self.t  = 0
+        self.reset()
+    
+    def reset( self):
+        self.reward_fn = np.zeros([ self.nS, self.nA])
+        for s in range(self.nS):
+            idx = np.random.choice(3)
+            self.reward_fn[ s, idx] = 1.
+        self.states = np.random.permutation( np.tile( np.arange(self.nS), 
+                                            [self.trial_per_stimuli,]))
+        self.T = self.trial_per_stimuli * self.nS
+        self.done = False
+
+    def stimuli( self):
+        self.s = self.states[self.t]
+        return self.s 
+    
+    def step( self, act):
+        r = self.reward_fn[ self.s, act]
+        self.t += 1
+        if self.t >= self.T:
+            self.done = True
+        correct_act = np.argmax(self.reward_fn[ self.s])
+        return r, correct_act, self.done 
+    
+class model:
+
+    def __init__( self, agent, task, sub_idx, is_sz):
+        # insert an agent that allows us
+        # to switch them 
+        self.agent = agent
+        self.task  = task
+        self.sub   = sub_idx
+        self.is_sz = is_sz
+
+    def nLL( self, params):
+        '''Calculate -log p(data|G,T,θ)
+
+        Input:
+
+            data: sampled data
+            T: task 
+            G: self.agent 
+            θ: agent's parameters 
+        
+        return:
+            NLL: the goodness of fit given model and a specific 
+                 set of parameters
+        '''
+        data = self.data
+        neg_log_like = 0.
+        nS = len( data.state.unique())
+        nA = 3 # this is hardcrafted for this experiment, 
+               # remember to change it when implementing other data set
+        agent = self.agent( nS, nA, params)
+
+        for t in range( data.shape[0]):
+
+            # get st, at for each time step,
+            # turn them to int format to faciliate indexing
+            state  = int( data.state.values[t])
+            action = int( data.action.values[t])
+            reward = data.reward.values[t]
+
+            # store 
+            agent.memory.push( state, action, reward)
+
+            # evaluate the action: π(at|st)
+            pi_at1st = agent.eval_action( state, action) 
+
+            # calculate NLL: -log π(at|st)
+            # add and machine epislon to the log
+            # to prevent NaN numerical problem
+            neg_log_like += - np.log( pi_at1st + eps_)
+
+            # model learn from the experience 
+            agent.update()
+
+        return neg_log_like
+
+    def fit( self, data, bnds, seed=2021, init=[], verbose=False):
+        '''Fit model using MLE
+
+        θ* = argmin_θ -log p(Data|G,T,θ)
+        
+        Among them, data, task (T) and agent (G) are fixed.
+
+        Input: 
+
+            data: Data
+            bnd: bounds of the parameters
+            seed: random seed. very important when running 
+                the parallel computing
+            init: initilaization of the parameters.
+
+        Output:
+            θ* : optimal parameters
+            -log p(data|G,θ*): lowest LL
+        '''
+        # prepare for the fit 
+        np.random.seed( seed)
+        self.data = data 
+        n_params = len( bnds)
+
+        # if we do not know what is a good initialization
+        # point that guarantee to find the global minima 
+        # we just randomize the initialization 
+        if len(init) == 0:
+            # init parameter 
+            param0 = list() 
+            for i in range( n_params):
+                # random init from the bounds
+                i0 = bnds[i][0] + (bnds[i][1] - bnds[i][0])*np.random.rand()
+                param0.append( i0)
+        else:
+            param0 = init
+        if verbose:
+            print( f'''
+                    Init with params:
+                    {param0}
+                    ''')
+            
+        # start fit 
+        result = minimize( self.nLL, param0,
+                            bounds=bnds, 
+                            options={'disp':False})
+
+        # result.x: θ*
+        # result.fun: -log p(Data|G,T,θ*) 
+        if verbose:
+            print( f'''
+                    optimal params: {result.x}
+                    lowest mle: {result.fun}
+                    ''')
+
+        return result.x, result.fun
+
+    def simulate( self, params):
+        '''Generate synthesis data
+
+        Data ~ p(DATA|G,T,θ*)
+
+        The simulation includes all set sizes
+        '''
+        data = dict()
+        subs    = []
+        setSizes= []
+        states  = []
+        actions = []
+        correct_acts = []
+        rewards = []
+        is_sz   = []
+        qvalues = []
+        
+        for nS in [ 2, 3, 4, 5, 6]:
+
+            # init environment 
+            env = self.task( nS)
+            # get state and action cardinarity
+            nS = self.env.nS
+            nA = self.env.nA
+            agent = self.agent( nS, nA, params)
+            done = False
+
+            while not done:
+
+                # get st, at for each time step,
+                # turn them to int format to faciliate indexing
+                state  = int( env.stimuli())
+                action = agent.get_action(state)
+                reward, correct_act, done = env.step( action)
+
+                # record the data 
+                subs.append( self.sub)
+                setSizes.append( nS)
+                states.append( state)
+                actions.append( action)
+                correct_acts.append( correct_act)
+                rewards.append( reward)
+                is_sz.append( self.is_sz)
+                qvalues.append( agent.q_value( state, action))
+            
+            data['setSize'] = setSizes
+            data['state'] = states
+            data['action'] = actions
+            data['correct_act'] = correct_acts
+            data['reward'] = rewards
+            data['id'] = subs
+            data['is_sz'] = is_sz
+            data['qvalues'] = qvalues
+
+        return data 
+
+# the replay buffer to store the memory 
+class simpleBuffer:
+    
+    def __init__( self):
+        self.table = []
+        
+    def push( self, *args):
+        self.table = tuple([ x for x in args]) 
+        
+    def sample( self ):
+        return self.table
+
+# define a agent used in Gershman's paper 
+class gradient_based:
+
+    def __init__( self, obs_dim, action_dim, params):
+        self.obs_dim = obs_dim 
+        self.action_dim = action_dim
+        self.action_space = range( self.action_dim)
+        self._init_critic()
+        self._init_actor()
+        self._init_marginal_obs()
+        self._init_marginal_action()
+        self._init_memory()
+        self.lr_v     = params[0]
+        self.lr_theta = params[1]
+        self.lr_a     = params[2]
+        self.beta     = params[3]
+
+    def _init_critic( self):
+        self.v = np.zeros([ self.obs_dim, 1])
+
+    def _init_actor( self):
+        self.theta = np.zeros( [ self.obs_dim, self.action_dim]) + 1e-20
+        self.pi    = np.ones( [ self.obs_dim, self.action_dim]) / self.action_dim
+    
+    def _init_marginal_obs( self):
+        self.p_s   = np.ones( [ self.obs_dim, 1]) / self.obs_dim
+    
+    def _init_marginal_action( self):
+        self.p_a   = np.ones( [ self.action_dim, 1]) / self.action_dim
+
+    def _init_memory( self):
+        self.memory = simpleBuffer()
+
+    def value( self, obs):
+        v_obs = self.v[ obs, 0]
+        return v_obs 
+
+    def q_value( self, obs, action):
+        q_sa = self.v[ obs, 0] * self.theta[ obs, action] 
+        return q_sa 
+        
+    def eval_action( self, obs, action):
+        pi_obs_action = self.pi[ obs, action]
+        return pi_obs_action
+    
+    def get_action( self, obs):
+        pi_obs = self.pi[ obs, :]
+        return np.random.choice( self.action_space, p = pi_obs)
+        
+    def update(self):
+        
+        # collect sampeles 
+        obs, action, reward = self.memory.sample() 
+
+        # calculate v prediction: V(st) --> scalar
+        # and policy likelihood:  π(at|st) --> scalar 
+        pred_v_obs = self.value( obs)
+        pi_like    = self.eval_action( obs, action)
+
+        # compute policy compliexy: C_π(s,a)= log( π(at|st)) - log( p(at)) --> scalar  
+        pi_comp = np.log( self.pi[ obs, action] + 1e-20) \
+                   - np.log( self.p_a[ action, 0] + 1e-20)
+
+        # compute predictioin error: δ = βr(st,at) - C_π(st,at) - V(st) --> scalar
+        rpe = self.beta * reward - pi_comp - pred_v_obs 
+        
+        # update critic: V(st) = V(st) + α_v * δ --> scalar
+        self.v[ obs, 0] += self.lr_v * rpe
+
+        # update policy parameter: θ = θ + α_θ * β * I(s=st) * δ *[1- π(at|st)] --> [nS,] 
+        I_s = np.zeros([self.obs_dim])
+        I_s[obs] = 1.
+        self.theta[ :, action] += self.lr_theta * rpe * \
+                                  self.beta * I_s * (1 - pi_like) 
+
+        # update policy parameter: π(a|s) ∝ p(a)exp(θ(s,a)) --> nSxnA
+        # note that to prevent numerical problem, I add an small value
+        # to π(a|s). As a constant, it will be normalized.  
+        log_pi = self.beta * self.theta + np.log(self.p_a.T) + 1e-15
+        self.pi = np.exp( log_pi - logsumexp( log_pi, axis=-1, keepdims=True))
+    
+        # update the mariginal policy: p(a) = p(a) + α_a * [ π(a|st) - p(a)] --> nAx1
+        self.p_a += self.lr_a * ( self.pi[ obs, :].reshape([-1,1]) - self.p_a) + 1e-20
+        self.p_a = self.p_a / np.sum( self.p_a)
+
+class gershman_model2( gradient_based):
+
+    def __init__( self, obs_dim, action_dim, params):
+        super().__init__( obs_dim, action_dim, params)
+
+    def update(self):
+        
+        # collect sampeles 
+        obs, action, reward = self.memory.sample() 
+
+        # calculate v prediction: V(st) --> scalar
+        # and policy likelihood:  π(at|st) --> scalar 
+        pred_v_obs = self.value( obs)
+        pi_like    = self.eval_action( obs, action)
+
+        # compute policy compliexy: C_π(s,a)= log( π(at|st)) - log( p(at)) --> scalar  
+        pi_comp = np.log( self.pi[ obs, action] + eps_) \
+                   - np.log( self.p_a[ action, 0] + eps_)
+
+        # compute predictioin error: δ = βr(st,at) - C_π(st,at) - V(st) --> scalar
+        rpe = self.beta * reward - pi_comp - pred_v_obs 
+        
+        # update critic: V(st) = V(st) + α_v * δ --> scalar
+        self.v[ obs, 0] += self.lr_v * rpe
+
+        # update policy parameter: θ = θ + α_θ * [β + π(at|st)/(p(at)*N)]* δ *[1- π(at|st)] --> scalar 
+        self.theta[ obs, action] += self.lr_theta * rpe * (1 - pi_like) \
+                                   * (self.beta + pi_like/self.p_a[action, 0]/self.obs_dim)
+
+        # update policy parameter: π(a|s) ∝ p(a)exp(θ(s,a)) --> nSxnA
+        # note that to prevent numerical problem, I add an small value
+        # to π(a|s). As a constant, it will be normalized.  
+        log_pi = self.beta * self.theta + np.log(self.p_a.T + eps_) + eps_
+        self.pi = np.exp( log_pi - logsumexp( log_pi, axis=-1, keepdims=True))
+
+        if np.isnan(np.sum(self.pi)):
+            print(1)
+    
+        # update the mariginal policy: p(a) = p(a) + α_a * [ π(a|st) - p(a)] --> nAx1
+        self.p_a += self.lr_a * ( self.pi[ obs, :].reshape([-1,1]) - self.p_a) + eps_
+        self.p_a = self.p_a / np.sum( self.p_a)
+
+def synthetic_data():
+
+    # load data
+    with open( f'{path}/data/collins_data_14.pkl', 'rb')as handle:
+        data = pickle.load( handle)  
+    num_sub = len(data.keys())
+    params_dict = dict()
+    for subi, sub in enumerate(data.keys()):
+        print( f'fit subject {subi}')
+        sub_data = data[ sub]
+        is_sz = sub_data.is_sz.values[0]
+        sub_model = model( gershman_model2, collins_task, 
+                           sub, is_sz)
+        bnds = ( (.0001, .95), (.0001, .95), (.0001, .95), (.0001, 80))
+        done = False
+        i = 0 
+        params_dict = np.zeros( [ num_sub, len(bnds)+1])
+        temp_params = []
+        temp_losses = []
+        while not done:
+            i += 1
+            seed = 2020 + subi*10 + i
+            params, loss = sub_model.fit( sub_data, bnds, seed=seed, verbose=True)
+            temp_params.append( params)
+            temp_losses.append( loss)
+            min_loss, min_idx = np.min(temp_losses), np.argmin(temp_losses)
+            params_opt = temp_params[ min_idx]
+            # accept the fit if the nll is smaller than 1000
+            if i >= 5:
+                if (min_loss < 600) or (i>=10):
+                    done = True 
+        print( f'''
+                Final decision {params_opt}:
+                With loss: {min_loss}
+                ''')
+        params_dict[subi, :-1] = params_opt
+        params_dict[subi, -1]  = is_sz 
+    
+    with open( f'{path}/data/params_dict.pkl', 'wb')as handle:
+        pickle.dump( params_dict, handle) 
+
+if __name__ == '__main__': 
+    synthetic_data()
+
+
+
+
+
+
+
 
