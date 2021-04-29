@@ -12,9 +12,7 @@ import pickle
 import numpy as np 
 import matplotlib.pyplot as plt 
 
-import scipy.stats
-
-from process_and_analyze import analyze, analyze_process
+from process_and_analyze import analyze, simluate_data, normfit
 
 # define the saving path
 path = os.path.dirname(os.path.abspath(__file__))
@@ -22,30 +20,6 @@ parser = argparse.ArgumentParser(description='Test for argparse')
 parser.add_argument('--fig_idx', '-f', help='figure idx', default='fig5')
 args = parser.parse_args()
 
-'''
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%   SEC0: BASIC FUNCTION   %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-'''
-
-def normfit(data, confidence=0.95):
-    ''' equivalent Matlab normfit function 
-
-    adapted from:
-    https://stackoverflow.com/questions/56440249/equivalent-python-code-of-normfit-in-matlab
-    '''    
-    a = 1.0 * np.array(data)
-    n = len(a)
-    m, se = np.mean(a), scipy.stats.sem(a)
-    h = se * scipy.stats.t.ppf((1 + confidence) / 2., n - 1)
-    var = np.var(data, ddof=1)
-    varCI_upper = var * (n - 1) / (scipy.stats.chi2.ppf((1-confidence) / 2, n - 1))
-    varCI_lower = var * (n - 1) / (scipy.stats.chi2.ppf(1-(1-confidence) / 2, n - 1))
-    sigma = np.sqrt(var)
-    sigmaCI_lower = np.sqrt(varCI_lower)
-    sigmaCI_upper = np.sqrt(varCI_upper)
-
-    return m, sigma, [m - h, m + h], [sigmaCI_lower, sigmaCI_upper]
 
 def plot_figures( fig_idx):
 
@@ -55,9 +29,10 @@ def plot_figures( fig_idx):
 
     # try to get the result data,
     if fig_idx=='fig2':
-        outcome = analyze_process()
+        outcome = analyze( 'human')
     elif fig_idx=='fig5':
-        outcome = analyze_process()
+        simluate_data( 'G_model_t')
+        outcome = analyze( 'G_model_t')
 
     plt.figure(figsize=(10,8))
     plt.rcParams.update({'font.size': 15})
