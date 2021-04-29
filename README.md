@@ -17,7 +17,7 @@ or
 
     python plot_figures.py -f=fig5
     
-## Where I have no access to the code and need to Guess
+## Where I have no access to the code and need to guess
 
 The original [Github repo] (http://github.com/lucylai96/plm/) includes codes to develop Fig.2 but not Fig.5 that includes a process model. This repo is developed on 04/28/21, the code of Gershman and Lai (2021) has not been posted. To replicate Fig.5, I create the code of this section by guessing.
 
