@@ -19,7 +19,7 @@ from process_and_analyze import prepare_fig2
 # define the saving path
 path = os.path.dirname(os.path.abspath(__file__))
 parser = argparse.ArgumentParser(description='Test for argparse')
-parser.add_argument('--fig_idx', '-f', help='figure idx', default='fig7')
+parser.add_argument('--fig_idx', '-f', help='figure idx', default='fig5')
 args = parser.parse_args()
 
 '''
@@ -47,20 +47,25 @@ def normfit(data, confidence=0.95):
 
     return m, sigma, [m - h, m + h], [sigmaCI_lower, sigmaCI_upper]
 
-def Fig2():
+def plot_figures( fig_idx):
 
     conds = [ 'HC', 'SZ']
     colors = [ 'b', 'r' ]
     setsize = [ 2, 3, 4, 5, 6]
 
     # try to get the result data,
+    if fig_idx=='fig2':
+        fname = f'{path}/data/results_collins_data_14.pkl'
+    elif fig_idx=='fig5':
+        fname = f'{path}/data/results_collins_sim_data.pkl'
+
     try:
-        with open( f'{path}/data/results_collins_data_14.pkl', 'rb')as handle:
+        with open( fname, 'rb')as handle:
             outcome = pickle.load( handle) 
     # if fails, prepare the data for fig2
     except:
-        prepare_fig2()
-        with open( f'{path}/data/results_collins_data_14.pkl', 'rb')as handle:
+        #prepare_fig2()
+        with open( fname, 'rb')as handle:
             outcome = pickle.load( handle)
 
     plt.figure(figsize=(10,8))
@@ -110,10 +115,11 @@ def Fig2():
     plt.legend( conds)
 
     try:
-        plt.savefig( f'{path}/figures/Gershman21_fig2')
+        plt.savefig( f'{path}/figures/Gershman21_{fig_idx}')
     except:
         os.mkdir('figures')
-        plt.savefig( f'{path}/figures/Gershman21_fig2')
+        plt.savefig( f'{path}/figures/Gershman21_{fig_idx}')
+
 
 def Fig7():
 
@@ -135,14 +141,6 @@ def Fig7():
     plt.savefig( f'{path}/figures/Gershman21_fig7')
     
 
-def plot_figures( fig_idx):
-
-    if fig_idx=='fig2':
-        Fig2()
-    elif fig_idx=='fig5':
-        pass 
-    elif fig_idx=='fig7':
-        Fig7()
     
 if __name__ == '__main__':
 
