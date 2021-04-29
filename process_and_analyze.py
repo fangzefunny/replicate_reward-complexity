@@ -668,7 +668,7 @@ class gershman_model2( gradient_based):
         #                                      * [β + π(at|st)/(p(at)*nS)]  --> scalar 
         # Note that I do not scale the learning rate by t as Gershman and Lai 21
         # because as said in the paper, this is trival operation
-        self.theta[ obs, action] += self.lr_theta/t * rpe * (1 - pi_like) \
+        self.theta[ obs, action] += self.lr_theta / t * rpe * (1 - pi_like) \
                                    * (self.beta + pi_like/self.p_a[action, 0]/self.obs_dim)
 
         # update policy parameter: π(a|s) ∝ p(a)exp(θ(s,a)) --> nSxnA
@@ -716,6 +716,7 @@ def fit_subject_data( n_cores=0):
     # pre assign the storage,
     # note that number of parameter is defined by Gershman's model
     num_sub = len(data.keys())
+    params_name = [ 'α_v', 'α_θ', 'α_a', 'β']
     num_param = 4 
     params_dict = np.zeros( [ num_sub, num_param])
     pool = mp.Pool( n_cores)
@@ -774,10 +775,9 @@ def fit_subject_data( n_cores=0):
                 With loss: {min_loss}
                 ''')
         params_dict[subi, :] = params_opt
-    
-    with open( f'{path}/data/params_dict.pkl', 'wb')as handle:
-        pickle.dump( params_dict, handle) 
 
+    params_df = pd.DataFrame( params_dict, columns=params_name)
+    params_df.to_csv( f'{path}/data/param_dict.csv')
 
 def analyze_process():
     '''Rate-Distortion with process model
@@ -803,15 +803,13 @@ def analyze_process():
     # load the subject's data and their parameters
     with open( f'{path}/data/collins_data_14.pkl', 'rb')as handle:
         data = pickle.load( handle)  
-    with open( f'{path}/data/params_dict.pkl', 'rb')as handle:
-        params = pickle.load( handle)  
+    params = pd.read_csv(f'{path}/data/param_dict2.csv', index_col=0).to_numpy() 
 
     prior = .1
     outcome = Rate_Reward_process( data, params, gershman_model2, prior)
 
     # save the analysis 
-    with open( f'{path}/data/results_collins_sim_data.pkl', 'wb')as handle:
-        pickle.dump( outcome, handle) 
+    return outcome
 
 
 def Rate_Reward_process( data, params, process_model, prior):

@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 import scipy.stats
 
-from process_and_analyze import prepare_fig2
+from process_and_analyze import analyze, analyze_process
 
 # define the saving path
 path = os.path.dirname(os.path.abspath(__file__))
@@ -55,18 +55,9 @@ def plot_figures( fig_idx):
 
     # try to get the result data,
     if fig_idx=='fig2':
-        fname = f'{path}/data/results_collins_data_14.pkl'
+        outcome = analyze_process()
     elif fig_idx=='fig5':
-        fname = f'{path}/data/results_collins_sim_data.pkl'
-
-    try:
-        with open( fname, 'rb')as handle:
-            outcome = pickle.load( handle) 
-    # if fails, prepare the data for fig2
-    except:
-        #prepare_fig2()
-        with open( fname, 'rb')as handle:
-            outcome = pickle.load( handle)
+        outcome = analyze_process()
 
     plt.figure(figsize=(10,8))
     plt.rcParams.update({'font.size': 15})
@@ -111,7 +102,10 @@ def plot_figures( fig_idx):
         plt.title( 'Pi comp. vs set size')
         plt.xlabel( 'set size')
         plt.ylabel( 'Pi complexity')
-    plt.ylim([.3, .7])    
+    if fig_idx=='fig2':
+        plt.ylim([.3, .7])
+    elif fig_idx=='fig5':
+        plt.ylim([.25, .6])    
     plt.legend( conds)
 
     try:
@@ -123,7 +117,7 @@ def plot_figures( fig_idx):
 
 def Fig7():
 
-    with open( f'{path}/data/params_dict.pkl', 'rb')as handle:
+    with open( f'{path}/data/params_dict2.pkl', 'rb')as handle:
         params_mat = pickle.load( handle) 
 
     plt.figure(figsize=(6,6))
@@ -140,7 +134,6 @@ def Fig7():
             plt.title( f'{parameter}')
     plt.savefig( f'{path}/figures/Gershman21_fig7')
     
-
     
 if __name__ == '__main__':
 
