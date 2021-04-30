@@ -14,7 +14,7 @@ With any python terminal, the first step is to preprocess the data:
     python preprocess_and_fits.py
     
 When preprocessing the data, this line of code also fits the [Gershman and Lai, 2021, model](https://www.biorxiv.org/content/10.1101/2020.11.16.385013v2.full.pdf)
-to the human data. Note that in this repo, I also share my fitted results in data file. If you want to save time and use my results, you can commit line 642 in file 'preprocess_and_fits.py'
+to the human data. Note that in this repo, I also share my fitted results in the data file. If you want to save time and use my results, you can comment line 642 in file 'preprocess_and_fits.py'
 
     # fit_subject_data( 'G_model_t', n_cores=0)
     
