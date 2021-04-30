@@ -9,7 +9,16 @@ Specifically, This repo reproduces Fig.2 and Fig.5.
 
 ## How to use the code 
 
-With any python terminal, run:
+With any python terminal, the first step is to preprocess the data:
+
+    python preprocess_and_fits.py
+    
+When preprocessing the data, this line of code also fits the [Gershman and Lai, 2021, model](https://www.biorxiv.org/content/10.1101/2020.11.16.385013v2.full.pdf)
+to the human data. Note that in this repo, I also share my fitted results in data file. If you want to save time and use my results, you can commit line 642 in file 'preprocess_and_fits.py'
+
+    # fit_subject_data( 'G_model_t', n_cores=0)
+    
+After the data preprocessing and model fitting, we can now reproduce some figures using:
 
     python plot_figures.py -f=fig2
    
@@ -35,9 +44,9 @@ To get the clues of how to include the process model in the analysis. Here we ci
 
 These paragraphs suggest that I need to
 
-    * fit the process model to each individual's data
-    * run the model with fitted parameters to generate simulation data
-    * Do the **SAME** analysis on the simulation data
+   * fit the process model to each individual's data
+   * run the model with fitted parameters to generate simulation data
+   * Do the **SAME** analysis on the simulation data
 
 I am not sure what does the word "same" means and how similar the analysis is. In this repo, I use literarily the same analysis. 
     
