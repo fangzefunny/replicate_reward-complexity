@@ -167,3 +167,85 @@ class G_model_t( gradient_based):
         # update the mariginal policy: p(a) = p(a) + α_a * [ π(a|st) - p(a)] --> nAx1
         self.p_a += self.lr_a * ( self.pi[ obs, :].reshape([-1,1]) - self.p_a)
         self.p_a = self.p_a / np.sum( self.p_a)
+
+'''
+Process Model 3: 
+
+Basic RL baseline
+'''
+
+class BaseRLAgent:
+    
+    def __init__( self, obs_dim, action_dim):
+        self.obs_dim = obs_dim 
+        self.action_dim = action_dim
+        self.action_space = range( self.action_dim)
+        self._init_critic()
+        self._init_actor()
+        self._init_marginal_obs()
+        self._init_marginal_action()
+        self._init_memory()
+        
+    def _init_marginal_obs( self):
+        self.po = np.ones( [self.obs_dim, 1]) * 1 / self.obs_dim
+
+    def _init_marginal_action( self):
+        self.pa = np.ones( [self.action_dim, 1]) * 1 / self.action_dim
+
+    def _init_memory( self):
+        self.memory = simpleBuffer()
+        
+    def _init_critic( self):
+        self.q_table = np.ones( [self.obs_dim, self.action_dim]) * 1/self.action_dim
+
+    def _init_actor( self):
+        self.pi = np.ones( [ self.obs_dim, self.action_dim]) * 1 / self.action_dim
+            
+    def q_value( self, obs, action):
+        q_obs = self.q_table[ obs, action ]
+        return q_obs 
+        
+    def eval_action( self, obs, action):
+        pi_obs_action = self.pi[ obs, action]
+        return pi_obs_action
+    
+    def get_action( self, obs):
+        pi_obs = self.pi[ obs, :]
+        return np.random.choice( self.action_space, p = pi_obs)
+        
+    def update(self):
+        return NotImplementedError
+
+class RLbaseline( BaseRLAgent):
+    '''Implement the sto-update softmax RL
+
+    st: the current state 
+    at: the current action
+
+    Update Q:
+        Q(st, at) += lr_q * [reward - Q(st, at)]
+
+    Update Pi: 
+        loss(st, :) = max Q(st, :) - Q(st, :) 
+        Pi( s_t, :) = exp( -beta * loss(st, :)) / sum_a exp( -beta * loss(st, :))
+    '''
+    def __init__( self, obs_dim, action_dim, params):
+        super().__init__( obs_dim, action_dim,)
+        self.lr_q = params[0]
+        self.beta = params[1]
+
+    def update( self):
+
+        # collect sampeles 
+        obs, action, reward, _ = self.memory.sample() 
+
+        # calculate q prediction
+        q_pred = self.q_value( obs, action)
+
+        # update critic 
+        self.q_table[ obs, action] += \
+                    self.lr_q * ( reward - q_pred)
+
+        # update policy
+        log_pi = self.beta * self.q_table 
+        self.pi = np.exp( log_pi - logsumexp( log_pi, axis=-1, keepdims=True))

@@ -12,7 +12,7 @@ import pickle
 import numpy as np 
 import matplotlib.pyplot as plt 
 
-from process_and_analyze import analyze, simluate_data, normfit
+from preprocess_and_fits import analyze, simluate_data, normfit
 
 # define the saving path
 path = os.path.dirname(os.path.abspath(__file__))
@@ -29,10 +29,13 @@ def plot_figures( fig_idx):
 
     # try to get the result data,
     if fig_idx=='fig2':
-        outcome = analyze( 'human')
+        outcome = analyze( 'human', mode='Rate_Reward')
     elif fig_idx=='fig5':
         simluate_data( 'G_model_t')
-        outcome = analyze( 'G_model_t')
+        outcome = analyze( 'G_model_t', mode='Rate_Reward')
+    elif fig_idx=='optimal':
+        simluate_data( 'optimal')
+        outcome = analyze( 'optimal', mode='Rate_Reward')
 
     plt.figure(figsize=(10,8))
     plt.rcParams.update({'font.size': 15})
@@ -108,9 +111,54 @@ def Fig7():
             plt.scatter( x, param_summary, color='b')
             plt.title( f'{parameter}')
     plt.savefig( f'{path}/figures/Gershman21_fig7')
+
+def Fig_Icare():
+
+    # analyze the data 
+    Rate_Rew = analyze( 'optimal', mode='Rate_Reward')
+    Set_Size = analyze( 'optimal', mode='Set_Size')
+
+    # show figure 
+    plt.figure(figsize=(10,4))
+    plt.rcParams.update({'font.size': 15})
+    setsizes = np.array( [ 2, 3, 4, 5, 6])
+    trial_per_sitmuli = np.arange( 1, 10)
+    conds = [ 'HC', 'SZ'] 
+
+    plt.subplot( 1, 3, 1)
+    for zi, _ in enumerate(setsizes):
+        plt.plot( trial_per_sitmuli, Set_Size[ :, zi, 0], 'o-', linewidth=1)
+    plt.xlabel( 'Trial per Sitmuli')
+    plt.ylabel( 'Accuracy')
+    plt.title( 'Set Size Effect of HC')
+
+    plt.subplot( 1, 3, 2)
+    for zi, _ in enumerate(setsizes):
+        plt.plot( trial_per_sitmuli, Set_Size[ :, zi, 1], 'o-', linewidth=1)
+    plt.xlabel( 'Trial per Sitmuli')
+    plt.ylabel( 'Accuracy')
+    plt.title( 'Set Size Effect of SZ')
+
+    plt.subplot( 1, 3, 3)
+    cond_colors = [ 'b', 'r' ]
+    mus  = np.zeros([len(setsizes), 2]) 
+    stds = np.zeros([len(setsizes), 2]) 
+    for j, _ in enumerate(conds):
+        for i, _ in enumerate( setsizes):
+            a = Rate_Rew[ 'Rate_data'][ :, i, j]
+            mu, _, mu_interval,_ = normfit( a[~np.isnan(a)])
+            mus[i, j]  = mu
+            stds[i, j] = np.diff(mu_interval)[0]/2
+        plt.plot( setsizes, mus[:,j], 'o-', color=cond_colors[j], linewidth=3)
+        plt.errorbar( setsizes, mus[:,j], stds[:,j], color=cond_colors[j])
+    plt.title( 'Pi comp. vs set size')
+    plt.xlabel( 'set size')
+    plt.ylabel( 'Pi complexity')
     
+    plt.savefig( f'{path}/figures/SetSize.png')
+
     
 if __name__ == '__main__':
 
     # show figure
-    plot_figures(args.fig_idx)
+    plot_figures(args.fig_idx) 

@@ -7,7 +7,7 @@ import multiprocessing as mp
 
 from scipy.special import psi, logsumexp 
 from scipy.optimize import minimize
-from agents import G_model, G_model_t
+from agents import *
 
 # define the saving path
 path = os.path.dirname(os.path.abspath(__file__))
@@ -265,17 +265,21 @@ def Rate_Reward( data, prior):
 
     return results
 
-def analyze( agent):
+def analyze( agent, mode):
 
     # load data
     with open( f'{path}/data/{agent}_data.pkl', 'rb')as handle:
         data = pickle.load( handle)  
     
     # analyze the data 
-    prior = .1 # concentration prior for the dirichlet process
-    outcome = Rate_Reward( data, prior)
+    if mode == 'Rate_Reward':
+        prior = .1 # concentration prior for the dirichlet process
+        RatRew = Rate_Reward( data, prior)
+        return RatRew 
 
-    return outcome 
+    if mode == 'Set_Size':
+        SetSize = set_size_effect( data)
+        return SetSize 
 
 '''
 SEC3: Data simulation
@@ -441,9 +445,10 @@ class model:
             # turn them to int format to faciliate indexing
             state  = int( data.state.values[t])
             action = int( agent.get_action(state))
-            reward = np.sum(data.correct_act.values[t] == action)
+            correct_act = int(data.correct_act.values[t])
+            reward = np.sum( correct_act == action)
 
-            pi_a1s = agent.eval_action( state, action)
+            pi_a1s = agent.eval_action( state, correct_act)
 
             # learn from memory from the experience 
             agent.memory.push( state, action, reward, t+1)
@@ -456,7 +461,7 @@ class model:
 
         return data 
 
-def fit_subject_data( process_agent, n_cores=0):
+def fit_subject_data( process_model, n_cores=0):
     '''Fit to each subject's data 
 
     In the raw the data, each ID means the data from one subject
@@ -481,8 +486,18 @@ def fit_subject_data( process_agent, n_cores=0):
     if n_cores>=6:
         n_cores = 6
 
+    # choose what agent to use 
+    if process_model == 'G_model_t':
+        what_agent = G_model_t
+    elif process_model == 'G_model':
+        what_agent = G_model
+    elif process_model == 'optimal':
+        what_agent = RLbaseline
+    else:
+        raise Exception( 'choose the correct model')
+
     # load the subject data
-    with open( f'{path}/data/collins_data_14.pkl', 'rb')as handle:
+    with open( f'{path}/data/human_data.pkl', 'rb')as handle:
         data = pickle.load( handle)  
 
     # pre assign the storage,
@@ -500,8 +515,7 @@ def fit_subject_data( process_agent, n_cores=0):
 
         # data in each subject and load the RL data
         sub_data = data[ sub]
-        is_sz = sub_data.is_sz.values[0]
-        agent = model( process_agent, sub, is_sz)
+        agent = model( what_agent, sub)
         bnds = ( (.0, .95), (.0, .95), (.0, .95), (.0001, 80))
         
         # init the fitting, what we do here is
@@ -549,9 +563,18 @@ def fit_subject_data( process_agent, n_cores=0):
         params_dict[subi, :] = params_opt
 
     params_df = pd.DataFrame( params_dict, columns=params_name)
-    params_df.to_csv( f'{path}/data/param_dict.csv')
+    params_df.to_csv( f'{path}/data/params_{process_model}.csv')
 
 def simluate_data( process_model):
+
+    if process_model == 'G_model_t':
+        what_agent = G_model_t
+    elif process_model == 'G_model':
+        what_agent = G_model
+    elif process_model == 'optimal':
+        what_agent = RLbaseline
+    else:
+        raise Exception( 'choose the correct model')
 
     # load data
     with open( f'{path}/data/human_data.pkl', 'rb')as handle:
@@ -572,10 +595,7 @@ def simluate_data( process_model):
                     'delay', 'prob']
         sim_sub_data = pd.DataFrame( columns=headers)
         blocks  = np.unique(sub_data.block.values)
-        if process_model == 'G_model_t':
-            agent = model( G_model_t, sub)
-        else:
-            raise Exception( 'choose the correct model')
+        agent = model( what_agent, sub)
         
         for bi in blocks: 
             block_data = sub_data.loc[ sub_data.block == bi
@@ -589,9 +609,38 @@ def simluate_data( process_model):
     with open( f'{path}/data/{process_model}_data.pkl', 'wb')as handle:
         pickle.dump( sim_data, handle) 
 
+def set_size_effect( data):
+    '''
+    '''
+    # prepare to analyze the set size effect
+    setsizes = np.array([ 2, 3, 4, 5, 6])
+    nums = np.zeros([1, 1, 2])
+    trial_per_sitmuli = np.arange( 1, 10)
+    accs = np.zeros([len(trial_per_sitmuli), len(setsizes), 2])
+
+    # iterate over data in each subject to collect
+    # the accuracy across the trials per stimuli
+    for sub in data.keys():
+        sub_data = data[sub]
+        is_sz = int(sub_data.is_sz.values[0])
+        nums[0, 0, is_sz] += 1
+        for zi, sz in enumerate(setsizes):
+            for ii, it in enumerate(trial_per_sitmuli):
+                idx = ((sub_data.setSize == sz) &
+                       (sub_data.iter == it))
+                acc = np.mean(sub_data.prob.values[idx])
+                accs[ ii, zi, is_sz] += acc 
+    accs /= nums 
+    return accs 
+
 if __name__ == '__main__': 
 
+    # preprocessing 
     pre_process()
+
+    # fit the model to human data 
+    fit_subject_data( 'G_model_t', n_cores=0)
+
     
 
 
